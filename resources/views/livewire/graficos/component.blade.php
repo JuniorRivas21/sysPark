@@ -13,18 +13,6 @@
                     <input type="date" id="dateInput" class="form-control" onchange="fetchData()">
                 </div>
 
-                <!-- Control de filtrado por hora de entrada -->
-                <div class="mb-3">
-                    <label for="hourStartInput" class="form-label">Hora de entrada:</label>
-                    <input type="time" id="hourStartInput" class="form-control" value="00:00" onchange="filterData()">
-                </div>
-
-                <!-- Control de filtrado por hora de salida -->
-                <div class="mb-3">
-                    <label for="hourEndInput" class="form-label">Hora de salida:</label>
-                    <input type="time" id="hourEndInput" class="form-control" value="23:59" onchange="filterData()">
-                </div>
-
                 <!-- Control de filtrado por tipo de vehículo -->
                 <div class="mb-3">
                     <label for="vehicleTypeSelect" class="form-label">Tipo de vehículo:</label>
@@ -58,9 +46,20 @@
     google.charts.load('current', {
         'packages': ['corechart','line']
     });
-    google.charts.setOnLoadCallback(fetchData);
+    google.charts.setOnLoadCallback(setDateAndFetchData);
 
     let originalData = []; // Inicializar como un array vacío para almacenar los datos reales
+
+    // Función para establecer la fecha actual y obtener datos reales desde el backend
+    function setDateAndFetchData() {
+        // Establecer la fecha actual en el input de fecha
+        const dateInput = document.getElementById('dateInput');
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+
+        // Llamar a fetchData para obtener los datos con la fecha actual
+        fetchData();
+    }
 
     // Función para obtener datos reales desde el backend
     function fetchData() {
@@ -68,12 +67,16 @@
         const date = document.getElementById('dateInput').value;
 
         // Construir la URL con el parámetro de fecha
-        const url =`/obtener-datos?fecha=${date}`;
+        const url = `/obtener-datos?fecha=${date}`;
 
         fetch(url)
             .then(response => response.json())
             .then(data => {
-                console.log("Datos obtenidos del servidor:", data); // Agrega esta línea para ver los datos en la consola
+                console.log("Datos obtenidos del servidor:", data);
+                if (data.message) {
+                document.getElementById('chart_div').innerHTML = "<p style='color: red; text-align: center;'>" + data.message + "</p>";
+                return; // Salir de la función
+            }
                 originalData = data;
                 drawVisualization();
             })
@@ -114,47 +117,29 @@
         }
     }
 
-
-
-    // Función para filtrar datos por tipo de vehículo y rango de horas
+    // Función para filtrar datos por tipo de vehículo
     function filterData() {
-        // Obtener valores de los filtros
-        const hourStart = document.getElementById('hourStartInput').value;
-        const hourEnd = document.getElementById('hourEndInput').value;
         const vehicleType = document.getElementById('vehicleTypeSelect').value;
 
-        // Clonar los datos originales para aplicar filtros sin modificar originalData
         let filteredData = originalData.map(row => row.slice());
 
-        // Filtrar por rango de horas
-        if (hourStart !== '' && hourEnd !== '') {
-            filteredData = filteredData.filter(row => {
-                const hour = row[0]; // Hora en el formato "HH:00"
-                return (hour >= hourStart && hour <= hourEnd) || row[0] === 'Hora'; // Mantener la fila de encabezado
-            });
-        }
-
-        // Filtrar por tipo de vehículo
         if (vehicleType !== 'all') {
-            // Índice del tipo de vehículo en los datos (1 para carro y 2 para bicicleta)
             const vehicleTypeIndex = {
                 'carro': 1,
                 'bicicleta': 2,
                 'scooter electrico': 3,
                 'moto': 4
-            } [vehicleType];
+            };
 
-            // Crear un nuevo conjunto de datos solo con el tipo de vehículo seleccionado
             filteredData = filteredData.map(row => {
-                if (row[0] === 'Hora') {
-                    // Cambiar encabezado según el tipo de vehículo seleccionado
-                    return ['Hora', vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)];
-                }
-                return [row[0], row[vehicleTypeIndex]]; // Mantener solo la hora y el tipo filtrado
+                if (row[0] === 'Hora') return row;
+                return row.map((value, index) => {
+                    if (index === vehicleTypeIndex[vehicleType] || index === 0) return value;
+                    return 0;
+                });
             });
         }
 
-        // Dibujar el gráfico con los datos filtrados
         drawVisualization(filteredData);
     }
 </script>

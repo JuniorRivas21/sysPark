@@ -27,6 +27,7 @@ class GraficosController extends Controller
             // Verifica que se están obteniendo los datos correctamente
             if ($registros->isEmpty()) {
                 Log::info("No se encontraron registros en la tabla para la fecha: " . $fecha->toDateString());
+                return response()->json(['message' => 'No hay datos disponibles para mostrar en el gráfico.'], 200);
             } else {
                 Log::info("Registros obtenidos para la fecha " . $fecha->toDateString() . ": ", $registros->toArray());
             }
